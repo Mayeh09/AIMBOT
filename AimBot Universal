@@ -1,0 +1,11 @@
+local player = game: GetService("Players"). LocalPlaye
+
+r
+
+local banMessage = Instance.new("Message")
+
+banMessage.Text = "You Just Got
+
+Banned XD\nReason: Exploiting..."
+
+banMessage. Parent = game: GetService("StarterGui")
