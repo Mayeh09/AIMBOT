@@ -1,0 +1,55 @@
+local fov, maxLockDistanceShort, maxLockDistanceLong = 50, 100, 250
+local maxLockDistance, isAimingEnabled, isFOVEnabled = maxLockDistanceShort, true, true
+local RunService, UserInputService, Players, Cam = game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("Players"), game.Workspace.CurrentCamera
+
+-- FOV Ring Setup
+local FOVring = Drawing.new("Circle")
+FOVring.Visible, FOVring.Thickness, FOVring.Color, FOVring.Filled, FOVring.Radius = true, 2, Color3.fromRGB(128, 0, 128), false, fov
+
+local function updateFOV() FOVring.Position = Cam.ViewportSize / 2 end
+local function onKeyDown(input) if input.KeyCode == Enum.KeyCode.Delete then RunService:UnbindFromRenderStep("FOVUpdate") FOVring:Remove() end end
+UserInputService.InputBegan:Connect(onKeyDown)
+
+-- Aiming Logic
+local function lookAt(target) if target then Cam.CFrame = CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + (target - Cam.CFrame.Position).unit) end end
+local function getClosestPlayerInFOV(trg_part)
+    local nearest, lastDist = nil, math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character then
+            local part = player.Character:FindFirstChild(trg_part)
+            if part then
+                local ePos, visible = Cam:WorldToViewportPoint(part.Position)
+                local dist, worldDist = (Vector2.new(ePos.x, ePos.y) - Cam.ViewportSize / 2).Magnitude, (part.Position - Cam.CFrame.Position).Magnitude
+                if dist < lastDist and visible and dist < fov and worldDist < maxLockDistance then lastDist, nearest = dist, player end
+            end
+        end
+    end
+    return nearest
+end
+
+RunService.RenderStepped:Connect(function()
+    if isFOVEnabled then updateFOV() FOVring.Visible = true else FOVring.Visible = false end
+    if isAimingEnabled then local closest = getClosestPlayerInFOV("Head") if closest and closest.Character and closest.Character:FindFirstChild("Head") then lookAt(closest.Character.Head.Position) end end
+end)
+
+-- UI Elements
+local screenGui, toggleButton, shortDistButton, longDistButton = Instance.new("ScreenGui"), Instance.new("TextButton"), Instance.new("TextButton"), Instance.new("TextButton")
+screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local function setupButton(button, pos, text, bgColor, callback)
+    button.Size, button.Position, button.Text, button.BackgroundColor3, button.TextSize, button.TextColor3, button.BackgroundTransparency, button.Parent = UDim2.new(0, 120, 0, 50), pos, text, bgColor, 14, Color3.fromRGB(255, 255, 255), 0.7, screenGui
+    button.MouseButton1Click:Connect(callback)
+end
+
+setupButton(toggleButton, UDim2.new(0.05, 0, 0.05, 0), "Disable Aim", Color3.fromRGB(70, 70, 70), function()
+    isAimingEnabled = not isAimingEnabled
+    toggleButton.Text, toggleButton.BackgroundColor3 = isAimingEnabled and "Disable Aim" or "Enable Aim", isAimingEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+end)
+
+setupButton(shortDistButton, UDim2.new(0.24, 0, 0.05, 0), "Short Distance", Color3.fromRGB(70, 70, 70), function()
+    maxLockDistance, shortDistButton.BackgroundColor3, longDistButton.BackgroundColor3 = maxLockDistanceShort, Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0)
+end)
+
+setupButton(longDistButton, UDim2.new(0.24, 0, 0.15, 0), "Long Distance", Color3.fromRGB(70, 70, 70), function()
+    maxLockDistance, longDistButton.BackgroundColor3, shortDistButton.BackgroundColor3 = maxLockDistanceLong, Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0)
+end)
